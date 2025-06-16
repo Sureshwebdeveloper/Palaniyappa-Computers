@@ -1,84 +1,65 @@
 import React from "react";
+import { FaRegFileAlt, FaUsers, FaMoneyBillWave } from "react-icons/fa";
 
-const TodayReport = ({
-  aadharEntries = [],
-  childEntries = [],
-  phoneEntries = [],
-}) => {
+const TodayReport = ({ aadharEntries = [], childEntries = [], phoneEntries = [] }) => {
   // Calculate totals for each section
-  const totalAadharCount = aadharEntries.reduce(
-    (sum, entry) => sum + entry.count,
-    0
-  );
-  
-  const totalAadharEarnings = aadharEntries.reduce(
-    (sum, entry) => sum + entry.subtotal,
-    0
-  );
+  const sections = [
+    { label: "Aadhar Enrolment", entries: aadharEntries },
+    { label: "Child Aadhar Enrolment", entries: childEntries },
+    { label: "Phone Number Enrolment", entries: phoneEntries },
+  ];
 
-  const totalChildCount = childEntries.reduce(
-    (sum, entry) => sum + entry.count,
+  const grandTotalCount = sections.reduce(
+    (total, section) => total + section.entries.reduce((sum, entry) => sum + entry.count, 0),
     0
   );
 
-  const totalChildEarnings = childEntries.reduce(
-    (sum, entry) => sum + entry.subtotal,
+  const grandTotalEarnings = sections.reduce(
+    (total, section) => total + section.entries.reduce((sum, entry) => sum + entry.subtotal, 0),
     0
   );
 
-  const totalPhoneCount = phoneEntries.reduce(
-    (sum, entry) => sum + entry.count,
-    0
-  );
-
-  const totalPhoneEarnings = phoneEntries.reduce(
-    (sum, entry) => sum + entry.subtotal,
-    0
-  );
-
-  // Grand totals across all sections
-  const grandTotalCount = totalAadharCount + totalChildCount + totalPhoneCount;
-  const grandTotalEarnings =
-    totalAadharEarnings + totalChildEarnings + totalPhoneEarnings;
-
-  console.log(
-    "grand total" + grandTotalCount + "Earnings" + grandTotalEarnings
-  );
+  console.log(`Grand Total Count: ${grandTotalCount}, Grand Total Earnings: ₹${grandTotalEarnings}`);
 
   return (
-    <div className="p-4">
-      <h2 className="text-2xl font-bold mb-4 text-dark">Today Report</h2>
+    <div className="p-6 bg-gray-50 min-h-screen">
+      <h2 className="text-3xl font-bold mb-6 text-dark flex items-center">
+        <FaRegFileAlt className="mr-2 text-primary" /> Today Report
+      </h2>
 
-      {/* Aadhar Enrolment Section */}
-      <div className="border border-gray-300 rounded p-4 bg-light shadow">
-        <h3 className="text-xl font-bold text-dark mb-2">Aadhar Enrolment</h3>
-        <p>Total Enrolment Count: {totalAadharCount}</p>
-        <p>Total Earnings: ₹{totalAadharEarnings}</p>
-      </div>
+      {/* Dynamically Render Sections */}
+      {sections.map(({ label, entries }, index) => {
+        const totalCount = entries.reduce((sum, entry) => sum + entry.count, 0);
+        const totalEarnings = entries.reduce((sum, entry) => sum + entry.subtotal, 0);
 
-      {/* Child Aadhar Enrolment Section */}
-      <div className="border border-gray-300 rounded p-4 bg-light shadow mt-4">
-        <h3 className="text-xl font-bold text-dark mb-2">
-          Child Aadhar Enrolment
-        </h3>
-        <p>Total Enrolment Count: {totalChildCount}</p>
-        <p>Total Earnings: ₹{totalChildEarnings}</p>
-      </div>
+        return (
+          <div key={index} className="border border-gray-300 rounded-lg p-6 bg-light shadow-md mt-4">
+            <h3 className="text-xl font-semibold text-dark mb-2 flex items-center">
+              <FaUsers className="mr-2 text-secondary" /> {label}
+            </h3>
 
-      {/* Phone Number Enrolment Section */}
-      <div className="border border-gray-300 rounded p-4 bg-light shadow mt-4">
-        <h3 className="text-xl font-bold text-dark mb-2">
-          Phone Number Enrolment
-        </h3>
-        <p>Total Enrolment Count: {totalPhoneCount}</p>
-        <p>Total Earnings: ₹{totalPhoneEarnings}</p>
-      </div>
+            {entries.length > 0 ? (
+              <>
+                <p className="text-lg">Total Enrolment Count: <span className="font-bold">{totalCount}</span></p>
+                <p className="text-lg">Total Earnings: <span className="font-bold">₹{totalEarnings}</span></p>
+              </>
+            ) : (
+              <p className="text-gray-500 italic">No records found today.</p>
+            )}
+          </div>
+        );
+      })}
 
       {/* Grand Total Summary */}
-      <div className="border border-gray-300 rounded p-4 bg-primary text-light mt-8 text-lg font-bold shadow">
-        <h3 className="text-xl mb-2">Grand Total Across All Sections</h3>
-        <p>Total Enrolment Count: {grandTotalCount}</p>
-        <p>Total Earnings: ₹{grandTotalEarnings}</p>
+      <div className="border border-gray-400 rounded-lg p-6 bg-primary text-light mt-8 text-xl font-bold shadow-lg flex justify-between">
+        <div className="flex items-center">
+          <FaUsers className="mr-2 text-light" />
+          <span>Total Enrolments: {grandTotalCount}</span>
+        </div>
+        <div className="flex items-center">
+          <FaMoneyBillWave className="mr-2 text-light" />
+          <span>Total Earnings: ₹{grandTotalEarnings}</span>
+        </div>
       </div>
     </div>
   );

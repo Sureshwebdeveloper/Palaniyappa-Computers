@@ -7,11 +7,11 @@ import TodayReport from './Todayreport';
 import WeeklyReport from './WeeklyReport';
 
 const Dashboard = () => {
-  // state variables to store enrolment data
+  // Centralized enrolment data
   const [aadharEntries, setAadharEntries] = useState([]);
   const [childEntries, setChildEntries] = useState([]);
   const [phoneEntries, setPhoneEntries] = useState([]);
-  
+
   const [activePage, setActivePage] = useState('enrolment');
 
   const renderContent = () => {
@@ -23,15 +23,10 @@ const Dashboard = () => {
       case 'phone':
         return <PhoneNumber entries={phoneEntries} setEntries={setPhoneEntries} />;
       case 'today':
-        return (
-          <TodayReport
-            aadharEntries={aadharEntries}
-            childEntries={childEntries}
-            phoneEntries={phoneEntries}
-          />
-        );
+        return <TodayReport aadharEntries={aadharEntries} childEntries={childEntries} phoneEntries={phoneEntries} />;
       case 'weekly':
-        return <WeeklyReport />;
+        return <WeeklyReport aadharEntries={aadharEntries} childEntries={childEntries} phoneEntries={phoneEntries} />
+
       default:
         return <AadharEnrolmentTable entries={aadharEntries} setEntries={setAadharEntries} />;
     }

@@ -1,10 +1,94 @@
+import React from "react";
+import jsPDF from "jspdf";
+import "jspdf-autotable"; // For table styling
+import { toast } from "react-toastify";
 
 const WeeklyReport = ({ aadharEntries = [], childEntries = [], phoneEntries = [] }) => {
+  const formatDate = (date) => {
+    return new Intl.DateTimeFormat("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" }).format(date);
+  };
 
-    <div className="p-4">
-    <h2 className="text-2xl font-bold mb-4 text-dark">Weekly Report</h2>
-    <p className="text-dark">Content for weekly report goes here...</p>
-  </div>
-}
+  const reportDays = [...Array(7)].map((_, index) => {
+    const date = new Date();
+    date.setDate(date.getDate() - index);
+    const isSunday = date.getDay() === 0;
+    
+    const dayEntries = {
+      aadhar: aadharEntries.filter(entry => entry.date === formatDate(date)),
+      child: childEntries.filter(entry => entry.date === formatDate(date)),
+      phone: phoneEntries.filter(entry => entry.date === formatDate(date)),
+    };
 
-export default WeeklyReport
+    return {
+      date,
+      formatted: formatDate(date),
+      isHoliday: isSunday,
+      hasRecords: dayEntries.aadhar.length > 0 || dayEntries.child.length > 0 || dayEntries.phone.length > 0,
+    };
+  }).reverse();
+
+  // Generate PDF with styling
+  const savePDF = () => {
+    const hasData = reportDays.some(({ hasRecords }) => hasRecords);
+
+    if (!hasData) {
+      toast.error("No records found for this week!");
+      return;
+    }
+
+    const doc = new jsPDF();
+    doc.setFont("helvetica", "bold");
+    doc.text("Weekly Report", 14, 15);
+    doc.setFont("helvetica", "normal");
+
+    const tableData = reportDays.map(({ formatted, isHoliday, hasRecords }) => [
+      formatted,
+      isHoliday ? "Holiday" : hasRecords ? "Data Recorded" : "No Record Found",
+    ]);
+
+    doc.autoTable({
+      head: [["Date", "Status"]],
+      body: tableData,
+      theme: "grid",
+      styles: { fillColor: [240, 240, 240] },
+    });
+
+    doc.save("Weekly_Report.pdf");
+  };
+
+  return (
+    <div className="p-6 bg-gray-100 min-h-screen flex flex-col items-center">
+      <h2 className="text-3xl font-bold mb-6 text-dark">📊 Weekly Report</h2>
+
+      {/* Report Entries */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-4xl">
+        {reportDays.map(({ formatted, isHoliday, hasRecords }, index) => (
+          <div key={index} className={`p-4 rounded-xl shadow-lg ${isHoliday ? "bg-red-100" : "bg-white"}`}>
+            <h3 className={`text-xl font-bold mb-2 ${isHoliday ? "text-red-600" : "text-dark"}`}>
+              {formatted} {isHoliday && "🎉 (Holiday)"}
+            </h3>
+            {!isHoliday ? (
+              hasRecords ? (
+                <p className="text-green-600 font-medium">✅ Data recorded for {formatted}.</p>
+              ) : (
+                <p className="text-gray-500">⚠ No record found for {formatted}.</p>
+              )
+            ) : (
+              <p className="text-gray-700">🏖 No work today!</p>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Save PDF Button */}
+      <button
+        onClick={savePDF}
+        className="mt-6 bg-blue-600 hover:bg-blue-800 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-300"
+      >
+        📄 Save Weekly Report as PDF
+      </button>
+    </div>
+  );
+};
+
+export default WeeklyReport;
