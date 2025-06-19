@@ -1,36 +1,73 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import jsPDF from "jspdf";
 import "jspdf-autotable"; // For table styling
 import { toast } from "react-toastify";
+import { FaRegFileAlt } from "react-icons/fa";
 
-const WeeklyReport = ({ aadharEntries = [], childEntries = [], phoneEntries = [] }) => {
-  const formatDate = (date) => {
-    return new Intl.DateTimeFormat("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" }).format(date);
+const WeeklyReport = () => {
+  const [reportData, setReportData] = useState({
+    aadharEntries: [],
+    childEntries: [],
+    phoneEntries: [],
+  });
+
+  useEffect(() => {
+    fetchWeeklyReport();
+  }, []);
+
+  // ✅ Fetch Weekly Report Data from Backend
+  const fetchWeeklyReport = async () => {
+    const token = localStorage.getItem("authToken");
+
+    try {
+      const response = await fetch("http://localhost:5000/weekly", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) throw new Error("Failed to fetch weekly report");
+
+      const data = await response.json();
+      setReportData(data);
+    } catch (error) {
+      console.error("Error fetching weekly report:", error);
+      toast.error("Failed to load weekly report!");
+    }
   };
 
-  const reportDays = [...Array(7)].map((_, index) => {
-    const date = new Date();
-    date.setDate(date.getDate() - index);
-    const isSunday = date.getDay() === 0;
-    
-    const dayEntries = {
-      aadhar: aadharEntries.filter(entry => entry.date === formatDate(date)),
-      child: childEntries.filter(entry => entry.date === formatDate(date)),
-      phone: phoneEntries.filter(entry => entry.date === formatDate(date)),
-    };
+  // ✅ Format Date for Readability
+  const formatDate = (date) =>
+    new Intl.DateTimeFormat("en-US", {
+      weekday: "long",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }).format(new Date(date));
 
-    return {
-      date,
-      formatted: formatDate(date),
-      isHoliday: isSunday,
-      hasRecords: dayEntries.aadhar.length > 0 || dayEntries.child.length > 0 || dayEntries.phone.length > 0,
-    };
-  }).reverse();
+  // ✅ Prepare Report Days (Last 7 Days)
+  const reportDays = [...Array(7)]
+    .map((_, index) => {
+      const date = new Date();
+      date.setDate(date.getDate() - index);
+      const formattedDate = date.toISOString().split("T")[0]; // Ensure it matches MongoDB format
 
-  // Generate PDF with styling
+      const dayEntries = {
+        aadhar: reportData.aadharEntries.filter((entry) => entry.date === formattedDate),
+        child: reportData.childEntries.filter((entry) => entry.date === formattedDate),
+        phone: reportData.phoneEntries.filter((entry) => entry.date === formattedDate),
+      };
+
+      return {
+        date: formattedDate,
+        formatted: formatDate(date),
+        isHoliday: date.getDay() === 0,
+        hasRecords: dayEntries.aadhar.length > 0 || dayEntries.child.length > 0 || dayEntries.phone.length > 0,
+      };
+    })
+    .reverse();
+
+  // ✅ Generate PDF Report
   const savePDF = () => {
     const hasData = reportDays.some(({ hasRecords }) => hasRecords);
-
     if (!hasData) {
       toast.error("No records found for this week!");
       return;
@@ -58,7 +95,9 @@ const WeeklyReport = ({ aadharEntries = [], childEntries = [], phoneEntries = []
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen flex flex-col items-center">
-      <h2 className="text-3xl font-bold mb-6 text-dark">📊 Weekly Report</h2>
+      <h2 className="text-3xl font-bold mb-6 text-dark flex items-center">
+        <FaRegFileAlt className="mr-2 text-primary" /> Weekly Report
+      </h2>
 
       {/* Report Entries */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-4xl">

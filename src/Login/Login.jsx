@@ -1,16 +1,16 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";  // ✅ Add React Router navigation
+import { useNavigate } from "react-router-dom";
 import { FaUserCircle } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-const Login = ({ onLogin }) => {  // ✅ Pass login handler as prop
+const Login = ({ onLogin }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();  // ✅ Initialize navigation
+  const navigate = useNavigate();
 
   console.log("API URL:", API_URL); // Debugging API URL
 
@@ -25,18 +25,22 @@ const Login = ({ onLogin }) => {  // ✅ Pass login handler as prop
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await response.json();
-      if (response.ok) {
-        localStorage.setItem("token", data.token); // ✅ Store token
-        localStorage.setItem("isLoggedIn", "true"); // ✅ Persist login state
-        toast.success("Login successful!");
-        onLogin();  // ✅ Update state in App.jsx
-        navigate("/dashboard"); // ✅ Redirect to Dashboard
-      } else {
-        toast.error(data.message || "Invalid credentials");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Invalid credentials");
       }
+
+      const data = await response.json();
+      localStorage.setItem("authToken", data.token);
+      localStorage.setItem("isLoggedIn", "true");
+
+      toast.success("Login successful!");
+      
+      if (onLogin) onLogin(); // Ensure `onLogin` exists before calling
+      navigate("/dashboard");
     } catch (error) {
-      toast.error("Server error. Please try again later.");
+      console.error("Login Error:", error);
+      toast.error(error.message || "Server error. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -50,7 +54,7 @@ const Login = ({ onLogin }) => {  // ✅ Pass login handler as prop
           <div className="flex justify-center mb-6">
             <FaUserCircle size={64} className="text-primary" />
           </div>
-          
+
           <div className="mb-5">
             <label htmlFor="email" className="block text-light font-bold mb-2">Email</label>
             <input

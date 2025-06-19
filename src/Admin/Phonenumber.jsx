@@ -1,144 +1,160 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { FaPlus, FaSpinner, FaTrash } from "react-icons/fa";
 
 const PhoneNumber = () => {
   const [count, setCount] = useState("");
   const [price, setPrice] = useState("");
   const [entries, setEntries] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    fetchEntries();
+  }, []);
+
+  // ✅ Fetch Entries from Backend
+  const fetchEntries = async () => {
+    const token = localStorage.getItem("authToken");
+    try {
+      const response = await fetch("http://localhost:5000/phone/", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) throw new Error("Failed to fetch data");
+
+      const data = await response.json();
+      setEntries(data);
+    } catch (error) {
+      console.error("Error fetching entries:", error);
+      toast.error("Error fetching entries!");
+    }
+  };
+
+  // ✅ Submit New Entry
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const enrolCount = Number(count);
-    const enrolPrice = Number(price);
-    if (enrolCount <= 0 || enrolPrice <= 0) return;
+    setIsLoading(true);
+    toast.info("Processing entry...");
 
-    const now = new Date();
-    const date = now.toLocaleDateString();
-    const time = now.toLocaleTimeString();
-
-    const subtotal = enrolCount * enrolPrice;
-
+    const token = localStorage.getItem("authToken");
     const newEntry = {
-      date,
-      time,
-      count: enrolCount,
-      price: enrolPrice,
-      subtotal,
+      date: new Date().toLocaleDateString(),
+      time: new Date().toLocaleTimeString(),
+      count: Number(count),
+      price: Number(price),
+      subtotal: Number(count) * Number(price),
     };
 
-    setEntries([...entries, newEntry]);
+    try {
+      const response = await fetch("http://localhost:5000/phone/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(newEntry),
+      });
+
+      if (!response.ok) throw new Error("Failed to save entry");
+
+      const savedEntry = await response.json();
+      setEntries([...entries, savedEntry]);
+      toast.success("Entry saved successfully!");
+    } catch (error) {
+      console.error("Error saving entry:", error);
+      toast.error("Failed to save entry!");
+    }
+
+    setIsLoading(false);
     setCount("");
     setPrice("");
   };
 
-  // Group entries by date
-  const groupedEntries = entries.reduce((groups, entry) => {
-    if (!groups[entry.date]) {
-      groups[entry.date] = [];
-    }
-    groups[entry.date].push(entry);
-    return groups;
-  }, {});
+  // ✅ Remove Entry
+  const handleDelete = async (id) => {
+    const token = localStorage.getItem("authToken");
+    try {
+      const response = await fetch(`http://localhost:5000/phone/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-  // **Grand Total Calculation Across All Days**
-  const grandTotalCount = entries.reduce((sum, entry) => sum + entry.count, 0);
-  const grandTotalEarnings = entries.reduce((sum, entry) => sum + entry.subtotal, 0);
+      if (!response.ok) throw new Error("Failed to delete entry");
+
+      setEntries(entries.filter(entry => entry._id !== id));
+      toast.success("Entry removed successfully!");
+    } catch (error) {
+      console.error("Error deleting entry:", error);
+      toast.error("Failed to delete entry!");
+    }
+  };
 
   return (
-    <div className="p-4">
-      <h2 className="text-2xl font-bold mb-4 text-dark">Phone Number Enrolment</h2>
+    <div className="p-6 bg-gray-100 min-h-screen">
+      <h2 className="text-3xl font-bold mb-6 text-blue-600 text-center">📞 Phone Number Enrolment</h2>
 
       {/* Entry Form */}
-      <form
-        onSubmit={handleSubmit}
-        className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4"
-      >
+      <form onSubmit={handleSubmit} className="bg-white shadow-md rounded-lg p-6 mb-8 grid grid-cols-1 md:grid-cols-3 gap-6">
         <div>
-          <label className="block text-sm font-semibold mb-1 text-dark">Phone Enrolment Count</label>
-          <input
-            type="number"
-            value={count}
+          <label className="block text-sm font-semibold mb-2 text-gray-700">Phone Enrolment Count</label>
+          <input 
+            type="number" 
+            value={count} 
             onChange={(e) => setCount(e.target.value)}
-            className="w-full px-3 py-2 border border-dark rounded"
-            required
+            className="w-full px-3 py-2 border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            required 
           />
         </div>
         <div>
-          <label className="block text-sm font-semibold mb-1 text-dark">Each Enrolment Price (Rs.)</label>
-          <input
-            type="number"
-            value={price}
+          <label className="block text-sm font-semibold mb-2 text-gray-700">Each Enrolment Price (Rs.)</label>
+          <input 
+            type="number" 
+            value={price} 
             onChange={(e) => setPrice(e.target.value)}
-            className="w-full px-3 py-2 border border-dark rounded"
-            required
+            className="w-full px-3 py-2 border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            required 
           />
         </div>
         <div className="flex items-end">
-          <button
-            type="submit"
-            className="w-full bg-primary hover:bg-dark text-light font-bold py-2 px-4 rounded"
+          <button 
+            type="submit" 
+            disabled={isLoading} 
+            className="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex items-center justify-center gap-2 transition"
           >
-            Add Entry
+            {isLoading ? <FaSpinner className="animate-spin" /> : <FaPlus />} {isLoading ? "Processing..." : "Add Entry"}
           </button>
         </div>
       </form>
 
-      {/* Display Entries by Date */}
-      <div className="space-y-8">
-        {Object.keys(groupedEntries).map((date) => {
-          const dateEntries = groupedEntries[date];
-
-          const totalCount = dateEntries.reduce((sum, entry) => sum + entry.count, 0);
-          const totalEarnings = totalCount * dateEntries[0]?.price; // Assuming same price per day
-
-          return (
-            <div key={date} className="border border-gray-300 rounded p-4 bg-light shadow">
-              <h3 className="text-xl font-bold text-dark mb-2">Date: {date}</h3>
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">Entry No.</th>
-                    <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">Phone Enrolment Count</th>
-                    <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">Each Price (Rs.)</th>
-                    <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">Subtotal (Rs.)</th>
-                    <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">Time</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dateEntries.map((entry, index) => (
-                    <tr key={index}>
-                      <td className="px-4 py-2">{index + 1}</td>
-                      <td className="px-4 py-2">{entry.count}</td>
-                      <td className="px-4 py-2">{entry.price}</td>
-                      <td className="px-4 py-2">{entry.subtotal}</td>
-                      <td className="px-4 py-2">{entry.time}</td>
-                    </tr>
-                  ))}
-                  {/* Daily Total Row */}
-                  <tr className="bg-gray-100 font-bold">
-                    <td className="px-4 py-2">Total for {date}</td>
-                    <td className="px-4 py-2">{totalCount}</td>
-                    <td className="px-4 py-2">-</td>
-                    <td className="px-4 py-2">₹{totalEarnings}</td>
-                    <td className="px-4 py-2">-</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          );
-        })}
+      {/* Entries Table */}
+      <div className="bg-white shadow-lg rounded-lg p-6">
+        <h3 className="text-xl font-bold text-blue-600 mb-4">📜 Enrolment Records</h3>
+        <table className="w-full text-left border border-gray-300 rounded">
+          <thead className="bg-blue-500 text-white">
+            <tr>
+              {["#", "Count", "Price", "Subtotal", "Time", "Remove"].map(header => (
+                <th key={header} className="px-4 py-2 text-sm font-semibold">{header}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {entries.map((entry, index) => (
+              <tr key={index} className="border-t">
+                <td className="px-4 py-2">{index + 1}</td>
+                <td className="px-4 py-2">{entry.count}</td>
+                <td className="px-4 py-2">₹{entry.price}</td>
+                <td className="px-4 py-2">₹{entry.subtotal}</td>
+                <td className="px-4 py-2">{entry.time}</td>
+                <td className="px-4 py-2 text-center">
+                  <button onClick={() => handleDelete(entry._id)} className="text-red-500 hover:text-red-700">
+                    <FaTrash />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-
-      {/* GRAND TOTAL SECTION */}
-      {entries.length > 0 && (
-        <div className="border border-gray-300 rounded p-4 bg-primary text-light mt-8 text-lg font-bold shadow">
-          <h3 className="text-xl mb-2">Grand Total Across All Phone Enrolment Entries</h3>
-          <p>Total Enrolment Count: {grandTotalCount}</p>
-          <p>Total Earnings: ₹{grandTotalEarnings}</p>
-        </div>
-      )}
     </div>
   );
 };
-
 
 export default PhoneNumber;
