@@ -1,131 +1,143 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import jsPDF from "jspdf";
-import "jspdf-autotable"; // For table styling
+import autoTable from "jspdf-autotable";
+import { FaDownload, FaSpinner } from "react-icons/fa";
 import { toast } from "react-toastify";
-import { FaRegFileAlt } from "react-icons/fa";
 
 const WeeklyReport = () => {
-  const [reportData, setReportData] = useState({
-    aadharEntries: [],
-    childEntries: [],
-    phoneEntries: [],
-  });
+  const [days, setDays] = useState([]);
+  const [expanded, setExpanded] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    fetchWeeklyReport();
-  }, []);
-
-  // ✅ Fetch Weekly Report Data from Backend
-  const fetchWeeklyReport = async () => {
-    const token = localStorage.getItem("authToken");
-
+  const fetchReport = async () => {
+    setIsLoading(true);
     try {
-      const response = await fetch("http://localhost:5000/weekly", {
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/weekly-report`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` },
       });
-
-      if (!response.ok) throw new Error("Failed to fetch weekly report");
-
-      const data = await response.json();
-      setReportData(data);
-    } catch (error) {
-      console.error("Error fetching weekly report:", error);
-      toast.error("Failed to load weekly report!");
+      const data = await res.json();
+      setDays(data);
+    } catch {
+      toast.error("Failed to load report");
     }
+    setIsLoading(false);
   };
 
-  // ✅ Format Date for Readability
-  const formatDate = (date) =>
-    new Intl.DateTimeFormat("en-US", {
-      weekday: "long",
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }).format(new Date(date));
+  useEffect(() => {
+    fetchReport();
+  }, []);
 
-  // ✅ Prepare Report Days (Last 7 Days)
-  const reportDays = [...Array(7)]
-    .map((_, index) => {
-      const date = new Date();
-      date.setDate(date.getDate() - index);
-      const formattedDate = date.toISOString().split("T")[0]; // Ensure it matches MongoDB format
+  const hasAnyData = days.some(
+    (day) => day.entries && (day.entries.aadhar.length > 0 || day.entries.child.length > 0 || day.entries.phone.length > 0)
+  );
 
-      const dayEntries = {
-        aadhar: reportData.aadharEntries.filter((entry) => entry.date === formattedDate),
-        child: reportData.childEntries.filter((entry) => entry.date === formattedDate),
-        phone: reportData.phoneEntries.filter((entry) => entry.date === formattedDate),
-      };
-
-      return {
-        date: formattedDate,
-        formatted: formatDate(date),
-        isHoliday: date.getDay() === 0,
-        hasRecords: dayEntries.aadhar.length > 0 || dayEntries.child.length > 0 || dayEntries.phone.length > 0,
-      };
-    })
-    .reverse();
-
-  // ✅ Generate PDF Report
   const savePDF = () => {
-    const hasData = reportDays.some(({ hasRecords }) => hasRecords);
-    if (!hasData) {
-      toast.error("No records found for this week!");
-      return;
-    }
-
     const doc = new jsPDF();
-    doc.setFont("helvetica", "bold");
     doc.text("Weekly Report", 14, 15);
-    doc.setFont("helvetica", "normal");
 
-    const tableData = reportDays.map(({ formatted, isHoliday, hasRecords }) => [
-      formatted,
-      isHoliday ? "Holiday" : hasRecords ? "Data Recorded" : "No Record Found",
-    ]);
+    const body = days
+      .filter((d) => d.entries)
+      .flatMap((d) => {
+        const base = [];
+        d.entries.aadhar.forEach((e) =>
+          base.push([d.formatted, "Aadhar", e.count, e.price, e.subtotal])
+        );
+        d.entries.child.forEach((e) =>
+          base.push([d.formatted, "Child Aadhar", e.count, e.price, e.subtotal])
+        );
+        d.entries.phone.forEach((e) =>
+          base.push([d.formatted, "Phone", e.count, e.price, e.subtotal])
+        );
+        return base;
+      });
 
-    doc.autoTable({
-      head: [["Date", "Status"]],
-      body: tableData,
+    autoTable(doc, {
+      head: [["Date", "Category", "Count", "Price", "Subtotal"]],
+      body,
+      startY: 25,
       theme: "grid",
-      styles: { fillColor: [240, 240, 240] },
+      styles: { fontSize: 10 },
     });
 
     doc.save("Weekly_Report.pdf");
   };
 
   return (
-    <div className="p-6 bg-gray-100 min-h-screen flex flex-col items-center">
-      <h2 className="text-3xl font-bold mb-6 text-dark flex items-center">
-        <FaRegFileAlt className="mr-2 text-primary" /> Weekly Report
-      </h2>
+    <div className="p-6 min-h-screen bg-gray-50">
+      <h2 className="text-3xl font-bold mb-6 text-center">📅 Weekly Report</h2>
 
-      {/* Report Entries */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-4xl">
-        {reportDays.map(({ formatted, isHoliday, hasRecords }, index) => (
-          <div key={index} className={`p-4 rounded-xl shadow-lg ${isHoliday ? "bg-red-100" : "bg-white"}`}>
-            <h3 className={`text-xl font-bold mb-2 ${isHoliday ? "text-red-600" : "text-dark"}`}>
-              {formatted} {isHoliday && "🎉 (Holiday)"}
-            </h3>
-            {!isHoliday ? (
-              hasRecords ? (
-                <p className="text-green-600 font-medium">✅ Data recorded for {formatted}.</p>
-              ) : (
-                <p className="text-gray-500">⚠ No record found for {formatted}.</p>
-              )
-            ) : (
-              <p className="text-gray-700">🏖 No work today!</p>
-            )}
+      {isLoading ? (
+        <div className="flex justify-center items-center h-40">
+          <FaSpinner className="animate-spin text-4xl text-blue-500" />
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-4 max-w-5xl mx-auto">
+            {days.map((day, idx) => (
+              <div
+                key={idx}
+                className={`p-4 rounded-lg border shadow-sm cursor-pointer ${
+                  day.isHoliday ? "bg-red-100 border-red-300" : "bg-white"
+                }`}
+                onClick={() => setExpanded(expanded === idx ? null : idx)}
+              >
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xl font-semibold">
+                    {day.formatted}
+                    {day.isHoliday && ` — ${day.holidayType}`}
+                  </h3>
+                  {!day.isHoliday && <span className="text-blue-600">Click to expand</span>}
+                </div>
+
+                {expanded === idx && day.entries && (
+                  <div className="mt-4 space-y-4">
+                    {["aadhar", "child", "phone"].map((key, i) => (
+                      <div key={i} className="bg-gray-100 p-4 rounded-md shadow-sm">
+                        <h4 className="text-md font-semibold mb-2 capitalize">{key} Enrolment</h4>
+                        {day.entries[key].length === 0 ? (
+                          <p className="text-gray-500 italic">No records</p>
+                        ) : (
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="text-left border-b">
+                                <th>Date</th>
+                                <th>Count</th>
+                                <th>Price</th>
+                                <th>Subtotal</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {day.entries[key].map((entry, j) => (
+                                <tr key={j}>
+                                  <td>{new Date(entry.date).toLocaleTimeString()}</td>
+                                  <td>{entry.count}</td>
+                                  <td>Rs. {entry.price}</td>
+                                  <td>Rs. {entry.subtotal}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      {/* Save PDF Button */}
-      <button
-        onClick={savePDF}
-        className="mt-6 bg-blue-600 hover:bg-blue-800 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-300"
-      >
-        📄 Save Weekly Report as PDF
-      </button>
+          {hasAnyData && (
+            <div className="flex justify-center mt-8">
+              <button
+                onClick={savePDF}
+                className="bg-blue-600 hover:bg-blue-800 text-white font-bold px-6 py-3 rounded-lg flex items-center gap-2"
+              >
+                <FaDownload /> Download Weekly Report
+              </button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 };

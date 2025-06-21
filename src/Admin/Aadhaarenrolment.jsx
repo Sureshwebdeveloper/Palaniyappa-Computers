@@ -13,25 +13,34 @@ const AadharEnrolmentTable = () => {
     fetchEntries();
   }, []);
 
-  // ✅ Fetch Entries from Backend
   const fetchEntries = async () => {
+    setIsLoading(true);
     const token = localStorage.getItem("authToken");
+
     try {
-      const response = await fetch("http://localhost:5000/aadhar/", {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/aadhar`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) throw new Error("Failed to fetch data");
 
       const data = await response.json();
-      setEntries(data);
+      const today = new Date().toLocaleDateString();
+      const todayEntries = data.filter(entry => entry.date === today);
+
+      setEntries(todayEntries);
+
+      if (todayEntries.length === 0) {
+        toast.info("No entries found for today.");
+      }
     } catch (error) {
       console.error("Error fetching entries:", error);
       toast.error("Error fetching entries!");
     }
+
+    setIsLoading(false);
   };
 
-  // ✅ Submit New Entry
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -47,9 +56,12 @@ const AadharEnrolmentTable = () => {
     };
 
     try {
-      const response = await fetch("http://localhost:5000/aadhar/", {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/aadhar`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(newEntry),
       });
 
@@ -68,11 +80,10 @@ const AadharEnrolmentTable = () => {
     setPrice("");
   };
 
-  // ✅ Remove Entry
   const handleDelete = async (id) => {
     const token = localStorage.getItem("authToken");
     try {
-      const response = await fetch(`http://localhost:5000/aadhar/${id}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/aadhar/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -89,12 +100,16 @@ const AadharEnrolmentTable = () => {
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
-      <h2 className="text-3xl font-bold mb-6 text-blue-600 text-center">📌 Aadhar Enrolment Dashboard</h2>
+      <h2 className="text-3xl font-bold mb-6 text-blue-600 text-center">
+        📌 Aadhar Enrolment Dashboard
+      </h2>
 
       {/* Entry Form */}
       <form onSubmit={handleSubmit} className="bg-white shadow-md rounded-lg p-6 mb-8 grid grid-cols-1 md:grid-cols-3 gap-6">
         <div>
-          <label className="block text-sm font-semibold mb-2 text-gray-700">Enrolment Count</label>
+          <label className="block text-sm font-semibold mb-2 text-gray-700">
+            Enrolment Count
+          </label>
           <input 
             type="number" 
             value={count} 
@@ -104,7 +119,9 @@ const AadharEnrolmentTable = () => {
           />
         </div>
         <div>
-          <label className="block text-sm font-semibold mb-2 text-gray-700">Each Enrolment Price (Rs.)</label>
+          <label className="block text-sm font-semibold mb-2 text-gray-700">
+            Each Enrolment Price (Rs.)
+          </label>
           <input 
             type="number" 
             value={price} 
@@ -119,42 +136,54 @@ const AadharEnrolmentTable = () => {
             disabled={isLoading} 
             className="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex items-center justify-center gap-2 transition"
           >
-            {isLoading ? <FaSpinner className="animate-spin" /> : <FaPlus />} {isLoading ? "Processing..." : "Add Entry"}
+            {isLoading ? <FaSpinner className="animate-spin" /> : <FaPlus />}
+            {isLoading ? "Processing..." : "Add Entry"}
           </button>
         </div>
       </form>
 
       {/* Entries Table */}
       <div className="bg-white shadow-lg rounded-lg p-6">
-        <h3 className="text-xl font-bold text-blue-600 mb-4">📜 Enrolment Records</h3>
-        <table className="w-full text-left border border-gray-300 rounded">
-          <thead className="bg-blue-500 text-white sticky top-0">
-            <tr>
-              {["#", "Count", "Price", "Subtotal", "Time", "Remove"].map(header => (
-                <th key={header} className="px-4 py-2 text-sm font-semibold">{header}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {entries.map((entry, index) => (
-              <tr key={index} className="border-t">
-                <td className="px-4 py-2">{index + 1}</td>
-                <td className="px-4 py-2">{entry.count}</td>
-                <td className="px-4 py-2">₹{entry.price}</td>
-                <td className="px-4 py-2">₹{entry.subtotal}</td>
-                <td className="px-4 py-2">{entry.time}</td>
-                <td className="px-4 py-2 text-center">
-                  <button onClick={() => handleDelete(entry._id)} className="text-red-500 hover:text-red-700">
-                    <FaTrash />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+        <h3 className="text-xl font-bold text-blue-600 mb-4">
+          📜 Enrolment Records (Today)
+        </h3>
 
-     
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <FaSpinner className="animate-spin text-blue-500 text-3xl" />
+          </div>
+        ) : entries.length > 0 ? (
+          <table className="w-full text-left border border-gray-300 rounded">
+            <thead className="bg-blue-500 text-white sticky top-0">
+              <tr>
+                {["#", "Count", "Price", "Subtotal", "Time", "Remove"].map(header => (
+                  <th key={header} className="px-4 py-2 text-sm font-semibold">{header}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {entries.map((entry, index) => (
+                <tr key={entry._id || index} className="border-t">
+                  <td className="px-4 py-2">{index + 1}</td>
+                  <td className="px-4 py-2">{entry.count}</td>
+                  <td className="px-4 py-2">₹{entry.price}</td>
+                  <td className="px-4 py-2">₹{entry.subtotal}</td>
+                  <td className="px-4 py-2">{entry.time}</td>
+                  <td className="px-4 py-2 text-center">
+                    <button onClick={() => handleDelete(entry._id)} className="text-red-500 hover:text-red-700">
+                      <FaTrash />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div className="text-center py-8 text-gray-500 font-medium">
+            😔 No entries made today.
+          </div>
+        )}
+      </div>
     </div>
   );
 };

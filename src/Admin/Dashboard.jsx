@@ -22,9 +22,9 @@ const Dashboard = () => {
 
     try {
       const [aadharRes, childRes, phoneRes] = await Promise.all([
-        fetch("http://localhost:5000/aadhar/", { headers: { Authorization: `Bearer ${token}` } }),
-        fetch("http://localhost:5000/child/", { headers: { Authorization: `Bearer ${token}` } }),
-        fetch("http://localhost:5000/phone/", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${import.meta.env.VITE_API_URL}/aadhar/`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${import.meta.env.VITE_API_URL}/child/`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${import.meta.env.VITE_API_URL}/phone/`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
       if (!aadharRes.ok || !childRes.ok || !phoneRes.ok) throw new Error("Failed to fetch data");
